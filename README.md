@@ -8,7 +8,7 @@ Selecione um texto no Omarchy e abra uma conversa com Codex ou Antigravity usand
 
 ## Uso
 
-- Selecione texto com o mouse e clique **Explicar com IA** para enviar uma explicação, ou **Conversar com IA** para preparar uma pergunta.
+- Selecione texto e clique **Explicar com IA** para continuar a conversa atual, **Conversar com IA** para preparar uma pergunta, ou **Explicar em novo chat** para iniciar outra conversa. Cada pergunta guarda o trecho selecionado.
 - **Super+Y** abre o chat com a seleção primária. O ícone ✦ na barra faz o mesmo.
 - Escolha Codex (verde) ou Antigravity (azul) na janela clara. Os seletores se reorganizam em janelas estreitas, a partir de 280 pixels.
 - Ative **Modo noturno** no menu de três pontos para usar o tema inspirado no Dracula. O Omachat lembra a escolha e a aplica à barra que aparece ao selecionar texto.

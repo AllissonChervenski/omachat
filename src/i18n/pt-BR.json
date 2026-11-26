@@ -28,5 +28,8 @@
   "Ask about the selected text.": "Faça uma pergunta sobre o texto selecionado.",
   "Ask a question or select text to start.": "Faça uma pergunta ou selecione um texto para começar.",
   "Resize window": "Redimensionar janela",
-  "Delete conversation": "Excluir conversa"
+  "Delete conversation": "Excluir conversa",
+  "Code": "Código",
+  "Copy code": "Copiar código",
+  "Text selected": "Texto selecionado"
 }

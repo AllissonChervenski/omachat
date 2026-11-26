@@ -26,6 +26,25 @@ QString selectedModel(QString model, const QString &provider) {
   model = model.trimmed();
   return model.isEmpty() ? defaultModel(provider) : model;
 }
+
+QJsonArray conversationMessages(const QJsonObject &conversation) {
+  QJsonArray messages = conversation["messages"].toArray();
+  const QString legacySelection = conversation["selection"].toString();
+  bool hasSelection = false;
+  for (const auto &entry : messages)
+    hasSelection |= entry.toObject().contains("selection");
+  if (!legacySelection.isEmpty() && !hasSelection) {
+    for (int i = 0; i < messages.size(); ++i) {
+      QJsonObject message = messages[i].toObject();
+      if (message["role"].toString() == "user") {
+        message["selection"] = legacySelection;
+        messages[i] = message;
+        break;
+      }
+    }
+  }
+  return messages;
+}
 }
 
 Backend::Backend(QString storage, QObject *parent)
@@ -138,6 +157,19 @@ void Backend::read() {
     m_provider = o["provider"].toString("Codex");
     m_model = selectedModel(o["model"].toString(), m_provider);
     m_effort = o["effort"].toString();
+    QString activeId = o["activeConversation"].toString();
+    if (activeId.isEmpty() && !m_history.isEmpty())
+      activeId = m_history.last().toObject()["id"].toString();
+    for (const auto &entry : m_history) {
+      const auto conversation = entry.toObject();
+      if (conversation["id"].toString() == activeId) {
+        m_id = activeId;
+        m_messages = conversationMessages(conversation);
+        if (m_messages.isEmpty())
+          m_selection = conversation["selection"].toString();
+        break;
+      }
+    }
   }
 }
 void Backend::save() {
@@ -150,7 +182,18 @@ void Backend::save() {
         {"model", m_model},
         {"effort", effort()},
         {"updated", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}};
-    QString title = m_selection;
+    QString title;
+    for (const auto &entry : m_history) {
+      const auto previous = entry.toObject();
+      if (previous["id"].toString() == m_id) {
+        title = previous["title"].toString();
+        break;
+      }
+    }
+    if (title.isEmpty() && !m_messages.isEmpty())
+      title = m_messages.first().toObject()["selection"].toString();
+    if (title.isEmpty())
+      title = m_selection;
     if (title.isEmpty() && !m_messages.isEmpty())
       title = m_messages.first().toObject()["content"].toString();
     row["title"] = title.simplified().left(70);
@@ -174,7 +217,8 @@ void Backend::save() {
                                     {"provider", m_provider},
                                     {"model", m_model},
                                     {"effort", effort()},
-                                    {"conversations", m_history}})
+                                    {"conversations", m_history},
+                                    {"activeConversation", m_id}})
               .toJson());
   if (!f.commit())
     m_error = tr("Could not save history.");
@@ -190,6 +234,19 @@ void Backend::newChat(QString s, bool explain) {
   if (explain && !s.isEmpty())
     send(tr("Explain the selected text clearly in the user's language."));
 }
+void Backend::attachSelection(QString selection, bool explain, bool startNew) {
+  if (m_busy)
+    return;
+  if (startNew) {
+    newChat(selection, explain);
+    return;
+  }
+  m_selection = selection.left(32768);
+  m_error.clear();
+  emit changed();
+  if (explain && !m_selection.isEmpty())
+    send(tr("Explain the selected text clearly in the user's language."));
+}
 void Backend::load(QString id) {
   if (m_busy)
     return;
@@ -197,13 +254,16 @@ void Backend::load(QString id) {
     auto o = v.toObject();
     if (o["id"].toString() == id) {
       m_id = id;
-      m_selection = o["selection"].toString();
-      m_messages = o["messages"].toArray();
+      m_selection.clear();
+      m_messages = conversationMessages(o);
+      if (m_messages.isEmpty())
+        m_selection = o["selection"].toString();
       m_provider = o["provider"].toString("Codex");
       m_model = selectedModel(o["model"].toString(), m_provider);
       m_effort = o["effort"].toString();
       m_error.clear();
       refreshModels();
+      save();
       emit changed();
       return;
     }
@@ -296,7 +356,10 @@ void Backend::send(QString text) {
   }
   if (m_id.isEmpty())
     m_id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-  append("user", text.trimmed());
+  QJsonObject message{{"role", "user"}, {"content", text.trimmed()}};
+  if (!m_selection.isEmpty())
+    message["selection"] = m_selection;
+  m_messages.append(message);
   if (prompt().size() > 200000) {
     m_messages.removeLast();
     m_error = tr("Conversation is too long. Start a new chat.");
@@ -309,6 +372,7 @@ void Backend::send(QString text) {
   m_stderr.clear();
   m_cancelled = false;
   m_busy = true;
+  m_selection.clear();
   save();
   QDir().mkpath(m_storage + "/workspace");
   m_process.setWorkingDirectory(m_storage + "/workspace");

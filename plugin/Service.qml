@@ -81,7 +81,7 @@ Item {
   stdout: StdioCollector {onStreamFinished: {try {var data=JSON.parse(text); if(data.text && Date.now()-root.releasedAt<1200){root.selected=data.text;popup.visible=true;hide.restart()}}catch(e){}}}
  }
  Process {id: launch; command: ["omachat","open","--request-stdin"]; stdinEnabled: true; onStarted: {write(root.payload+"\n");stdinEnabled=false}}
- function openChat(explain) {root.payload=JSON.stringify({text: root.selected,explain:explain});popup.visible=false;launch.stdinEnabled=true;launch.running=true}
+ function openChat(explain, newChat) {root.payload=JSON.stringify({text: root.selected,explain:explain,newChat:!!newChat});popup.visible=false;launch.stdinEnabled=true;launch.running=true}
  Timer {id: hide; interval: 6000; onTriggered: popup.visible=false}
  Timer {id: settle; interval: 110; onTriggered: {if(!capture.running)capture.running=true}}
  Connections {
@@ -138,6 +138,10 @@ Item {
             SelectionAction {
                 text: strings.t("selection.chat")
                 onClicked: root.openChat(false)
+            }
+            SelectionAction {
+                text: strings.t("selection.newChat")
+                onClicked: root.openChat(true, true)
             }
         }
     }

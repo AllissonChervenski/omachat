@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
   app.setApplicationName("omachat");
   app.setOrganizationName("Omachat");
   app.setDesktopFileName("omachat");
-  app.setApplicationVersion("0.2.2");
+  app.setApplicationVersion("0.2.5");
   auto args = app.arguments();
   QJsonObject request;
   if (args.contains("--request-stdin")) {
@@ -132,7 +132,8 @@ int main(int argc, char **argv) {
       return;
     }
     if (r.contains("text"))
-      backend.newChat(r["text"].toString(), r["explain"].toBool());
+      backend.attachSelection(r["text"].toString(), r["explain"].toBool(),
+                              r["newChat"].toBool());
     window->show();
     window->raise();
     window->requestActivate();

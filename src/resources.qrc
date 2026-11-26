@@ -1,6 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>Main.qml</file>
+        <file>MarkdownBlocks.js</file>
         <file alias="OmachatPalette.qml">../plugin/OmachatPalette.qml</file>
         <file>i18n/pt-BR.json</file>
     </qresource>

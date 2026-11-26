@@ -36,6 +36,8 @@ public:
   Q_INVOKABLE void send(QString text);
   Q_INVOKABLE void cancel();
   Q_INVOKABLE void newChat(QString selection = {}, bool explain = false);
+  Q_INVOKABLE void attachSelection(QString selection, bool explain = false,
+                                   bool startNew = false);
   Q_INVOKABLE void load(QString id);
   Q_INVOKABLE void remove(QString id);
   Q_INVOKABLE void refreshModels();

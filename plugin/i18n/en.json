@@ -1,4 +1,5 @@
 {
     "selection.explain": "Explain with AI",
-    "selection.chat": "Chat with AI"
+    "selection.chat": "Chat with AI",
+    "selection.newChat": "Explain in new chat"
 }

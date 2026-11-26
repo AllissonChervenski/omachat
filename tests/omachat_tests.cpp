@@ -1,11 +1,34 @@
 #include "backend.h"
 #include <QFile>
 #include <QJsonDocument>
+#include <QJSEngine>
+#include <QJSValue>
 #include <QTemporaryDir>
 #include <QtTest>
 class Tests : public QObject {
   Q_OBJECT
 private slots:
+  void markdownBlocks() {
+    QFile source(":/MarkdownBlocks.js");
+    QVERIFY(source.open(QIODevice::ReadOnly));
+    QByteArray script = source.readAll();
+    script.replace(".pragma library", "");
+    QJSEngine js;
+    QVERIFY(!js.evaluate(QString::fromUtf8(script)).isError());
+    QJSValue split = js.globalObject().property("split");
+    QJSValue blocks = split.call({"Before\n\n~~~python\nx = `ok`\n~~~\n\nAfter"});
+    QCOMPARE(blocks.property("length").toInt(), 3);
+    QCOMPARE(blocks.property(1).property("kind").toString(), QString("code"));
+    QCOMPARE(blocks.property(1).property("language").toString(), QString("python"));
+    QCOMPARE(blocks.property(1).property("text").toString(), QString("x = `ok`"));
+    blocks = split.call({"````js\n```\n  text\n````"});
+    QCOMPARE(blocks.property(0).property("text").toString(), QString("```\n  text"));
+    blocks = split.call({"~~~\nunfinished"});
+    QCOMPARE(blocks.property(0).property("text").toString(), QString("unfinished"));
+    QJSValue safe = js.globalObject().property("safeMarkdown");
+    QCOMPARE(safe.call({"<img src='file:///secret'> ![alt](https://example.com/x)"}).toString(),
+             QString("&lt;img src='file:///secret'&gt; [alt]"));
+  }
   void historyRoundTrip() {
     QTemporaryDir d;
     QString id;
@@ -30,6 +53,38 @@ private slots:
     }
     QFile f(d.path() + "/history.json");
     QVERIFY(!(f.permissions() & QFile::ReadOther));
+  }
+  void selectionContinuesConversation() {
+    QTemporaryDir d;
+    auto old = qgetenv("PATH");
+    QFile cli(d.filePath("codex"));
+    QVERIFY(cli.open(QIODevice::WriteOnly));
+    cli.write("#!/bin/sh\ncat >/dev/null\nprintf '%s\n' '{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"OK\"}}'\n");
+    cli.close();
+    cli.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    qputenv("PATH", d.path().toUtf8() + ":" + old);
+    {
+      Backend b(d.filePath("data"));
+      b.attachSelection("first", true);
+      QTRY_VERIFY_WITH_TIMEOUT(!b.busy(), 5000);
+      b.attachSelection("second", true);
+      QTRY_VERIFY_WITH_TIMEOUT(!b.busy(), 5000);
+      QCOMPARE(b.conversations().size(), 1);
+      QCOMPARE(b.messages().size(), 4);
+      QCOMPARE(b.messages()[0].toMap()["selection"].toString(), QString("first"));
+      QCOMPARE(b.messages()[2].toMap()["selection"].toString(), QString("second"));
+      QVERIFY(b.prompt().contains("first"));
+      QVERIFY(b.prompt().contains("second"));
+    }
+    {
+      Backend b(d.filePath("data"));
+      QCOMPARE(b.messages().size(), 4);
+      b.attachSelection("third", true, true);
+      QTRY_VERIFY_WITH_TIMEOUT(!b.busy(), 5000);
+      QCOMPARE(b.conversations().size(), 2);
+      QCOMPARE(b.messages().size(), 2);
+    }
+    qputenv("PATH", old);
   }
   void defaultsAndEffort() {
     QTemporaryDir d;

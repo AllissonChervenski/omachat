@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtCore
+import "MarkdownBlocks.js" as MarkdownBlocks
 
 ApplicationWindow {
     id: win
@@ -75,6 +76,10 @@ ApplicationWindow {
             backend.send(input.text)
             input.clear()
         }
+    }
+    function openConversation(id) {
+        backend.load(id)
+        history.close()
     }
 
     function modelName(slug) {
@@ -175,6 +180,95 @@ ApplicationWindow {
         ToolTip.visible: hovered && contentItem.truncated && !popup.visible
         ToolTip.delay: 450
         ToolTip.text: displayText
+    }
+
+    Component {
+        id: markdownBlock
+        TextEdit {
+            width: parent.width
+            text: MarkdownBlocks.safeMarkdown(parent.block.text)
+            textFormat: TextEdit.MarkdownText
+            color: win.ink
+            font: win.font
+            readOnly: true
+            selectByMouse: true
+            wrapMode: TextEdit.Wrap
+            selectedTextColor: win.onAccent
+            selectionColor: win.accent
+            onLinkActivated: function(link) {
+                if (/^https?:\/\//i.test(link))
+                    Qt.openUrlExternally(link)
+            }
+        }
+    }
+
+    Component {
+        id: codeBlock
+        Frame {
+            id: codeFrame
+            width: parent.width
+            readonly property var block: parent.block
+            padding: 0
+            background: Rectangle {
+                color: win.darkMode ? "#191b25" : "#f0f3f2"
+                border.color: win.line
+                radius: 10
+            }
+            contentItem: ColumnLayout {
+                spacing: 0
+                RowLayout {
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 5
+                    Label {
+                        text: codeFrame.block.language || qsTr("Code")
+                        textFormat: Text.PlainText
+                        color: win.muted
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                        Layout.fillWidth: true
+                    }
+                    ActionButton {
+                        text: qsTr("Copy code")
+                        onClicked: backend.copy(codeFrame.block.text)
+                    }
+                }
+                TextMetrics {
+                    id: codeMetrics
+                    font: codeText.font
+                    text: codeFrame.block.text.split("\n").reduce(function(longest, line) {
+                        return line.length > longest.length ? line : longest
+                    }, "")
+                }
+                Flickable {
+                    id: codeScroll
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Math.min(300, codeText.contentHeight + 20)
+                    contentWidth: Math.max(width, codeMetrics.advanceWidth + 20)
+                    contentHeight: codeText.contentHeight + 20
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.horizontal: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    TextEdit {
+                        id: codeText
+                        x: 10
+                        y: 10
+                        width: codeScroll.contentWidth - 20
+                        text: codeFrame.block.text
+                        color: win.ink
+                        font.family: "monospace"
+                        font.pixelSize: 12
+                        textFormat: TextEdit.PlainText
+                        readOnly: true
+                        selectByMouse: true
+                        wrapMode: TextEdit.NoWrap
+                        selectedTextColor: win.onAccent
+                        selectionColor: win.accent
+                    }
+                }
+            }
+        }
     }
 
     header: Rectangle {
@@ -349,33 +443,54 @@ ApplicationWindow {
             }
         }
 
-        ListView {
+        ScrollView {
             id: chat
             Layout.fillWidth: true
             Layout.fillHeight: true
             Layout.minimumHeight: 45
+            contentWidth: availableWidth
             clip: true
-            spacing: 8
-            model: backend.messages
-            onCountChanged: Qt.callLater(positionViewAtEnd)
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+            Column {
+                id: messageList
+                width: chat.availableWidth
+                spacing: 8
+                Timer {
+                    id: scrollToLatest
+                    interval: 50
+                    onTriggered: chat.ScrollBar.vertical.position =
+                                     Math.max(0, 1 - chat.ScrollBar.vertical.size)
+                }
 
             Label {
-                visible: chat.count === 0
-                width: Math.min(parent.width, 330)
-                anchors.centerIn: parent
+                visible: backend.messages.length === 0
+                width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 color: win.muted
                 text: backend.selection ? qsTr("Ask about the selected text.") : qsTr("Ask a question or select text to start.")
             }
 
-            delegate: Frame {
+            Repeater {
+                model: backend.messages
+                onCountChanged: scrollToLatest.restart()
+                delegate: Item {
+                id: messageRow
                 required property var modelData
-                width: chat.width - 6
+                width: messageList.width
+                implicitHeight: bubble.implicitHeight
+                height: implicitHeight
+
+                Frame {
+                id: bubble
+                width: Math.max(1, parent.width - (win.compact ? 25 : 40))
+                anchors.right: messageRow.modelData.role === "user" ? parent.right : undefined
+                anchors.left: messageRow.modelData.role !== "user" ? parent.left : undefined
                 padding: 9
                 background: Rectangle {
-                    color: modelData.role === "user" ? win.tint : win.surface
+                    color: messageRow.modelData.role === "user"
+                           ? (win.darkMode ? "#44475a" : "#e8ebed") : win.tint
                     radius: 12
                     border.color: win.line
                 }
@@ -385,16 +500,32 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Label {
                             Layout.fillWidth: true
-                            text: modelData.role === "user" ? qsTr("You") : qsTr("Assistant")
+                            text: messageRow.modelData.role === "user" ? qsTr("You") : qsTr("Assistant")
                             font.pixelSize: 11
                             font.weight: Font.DemiBold
                             color: win.accent
                         }
-                        ActionButton { text: qsTr("Copy"); onClicked: backend.copy(modelData.content) }
+                        ActionButton { text: qsTr("Copy"); onClicked: backend.copy(messageRow.modelData.content) }
+                    }
+                    Frame {
+                        Layout.fillWidth: true
+                        visible: !!messageRow.modelData.selection
+                        padding: 7
+                        background: Rectangle { color: win.darkMode ? "#363946" : "#f6f7f8"; radius: 7 }
+                        contentItem: TextEdit {
+                            text: messageRow.modelData.selection || ""
+                            textFormat: TextEdit.PlainText
+                            color: win.muted
+                            font.pixelSize: 12
+                            readOnly: true
+                            selectByMouse: true
+                            wrapMode: TextEdit.Wrap
+                        }
                     }
                     TextArea {
                         Layout.fillWidth: true
-                        text: modelData.content
+                        visible: messageRow.modelData.role !== "assistant"
+                        text: visible ? messageRow.modelData.content : ""
                         readOnly: true
                         wrapMode: TextEdit.Wrap
                         textFormat: TextEdit.PlainText
@@ -402,7 +533,20 @@ ApplicationWindow {
                         padding: 0
                         background: null
                     }
+                    Repeater {
+                        model: messageRow.modelData.role === "assistant" ? MarkdownBlocks.split(messageRow.modelData.content) : []
+                        delegate: Loader {
+                            required property var modelData
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            property var block: modelData
+                            sourceComponent: block.kind === "code" ? codeBlock : markdownBlock
+                        }
+                    }
                 }
+                }
+                }
+            }
             }
         }
 
@@ -507,7 +651,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.minimumWidth: 0
                         enabled: !backend.busy
-                        onClicked: { backend.load(modelData.id); history.close() }
+                        onClicked: win.openConversation(modelData.id)
                     }
                     ActionButton {
                         text: "×"
