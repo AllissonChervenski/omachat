@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Omachat
+Comment=Explain selected text with AI
+Comment[pt_BR]=Explique textos selecionados com IA
+Exec=omachat open
+Icon=omachat
+Terminal=false
+Categories=Utility;
+StartupWMClass=omachat

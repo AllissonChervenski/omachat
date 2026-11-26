@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+"""Install the user-owned plugin, preserving system defaults and backups."""
+from pathlib import Path
+import shutil
+import subprocess
+import time
+home = Path.home()
+root = Path(__file__).resolve().parents[1]
+plugin = home / '.config/omarchy/plugins/local.omachat'
+plugin.mkdir(parents=True, exist_ok=True)
+shutil.copytree(root/'plugin', plugin, dirs_exist_ok=True, ignore=shutil.ignore_patterns('__pycache__'))
+bindings = home/'.config/hypr/bindings.lua'
+text = bindings.read_text()
+marker = '-- Omachat integration'
+if marker not in text:
+    # Never replace an existing keyboard binding.
+    binds = subprocess.run(['hyprctl','-j','binds'], capture_output=True, text=True, check=True)
+    import json
+    if any(x.get('key','').lower() == 'y' and x.get('modmask') == 64 for x in json.loads(binds.stdout)):
+        raise SystemExit('Super+Y is occupied. Choose a free shortcut before integrating.')
+    shutil.copy2(bindings, str(bindings)+'.bak.'+str(int(time.time())))
+    bindings.write_text(text + '\n'+marker+'\no.bind("SUPER + Y", "Omachat: conversar com IA", { launch = "omachat open --selection" })\no.window("^omachat$", { float = true, move = { "(monitor_w-window_w-24)", "40" } })\n')
+subprocess.run(['hyprctl','reload'],check=True)
+subprocess.run(['hyprctl','configerrors'],check=True)
+subprocess.run(['omarchy-shell','shell','rescanPlugins'],check=True)
+subprocess.run(['omarchy','plugin','enable','local.omachat'],check=True)

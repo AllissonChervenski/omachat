@@ -1,0 +1,21 @@
+pkgname=omachat
+pkgver=0.2.2
+pkgrel=1
+pkgdesc='Selection explanation and chat with Codex or Antigravity for Omarchy'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+options=('!debug')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'wl-clipboard' 'python')
+makedepends=('gcc' 'make')
+source=()
+sha256sums=()
+build() { cd "$startdir/.."; ./bin/build; }
+package() {
+ cd "$startdir/.."
+ install -Dm755 build/omachat "$pkgdir/usr/bin/omachat"
+ install -Dm644 LICENSE "$pkgdir/usr/share/licenses/omachat/LICENSE"
+ install -Dm644 pkgbuild/omachat.desktop "$pkgdir/usr/share/applications/omachat.desktop"
+ install -Dm644 pkgbuild/omachat.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/omachat.svg"
+ mkdir -p "$pkgdir/usr/share/omachat/plugin"
+ cp -r plugin/. "$pkgdir/usr/share/omachat/plugin/"
+}

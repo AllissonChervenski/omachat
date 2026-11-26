@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+"$ROOT/bin/build"
+cd "$ROOT/pkgbuild"
+makepkg -f
+pkg="$(makepkg --packagelist)"
+if [ -t 0 ]; then sudo pacman -U --noconfirm "$pkg"; else pkexec pacman -U --noconfirm "$pkg"; fi
+"$ROOT/bin/integrate"
