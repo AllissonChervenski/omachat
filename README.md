@@ -1,5 +1,7 @@
 # Omachat
 
+> **Versão atual:** `v0.2.2` · **Licença:** MIT · **Plataforma:** Omarchy (Hyprland + Qt 6 / Quickshell)
+
 ![Omachat](docs/omachat.png)
 
 Selecione um texto no Omarchy e abra uma conversa com Codex ou Antigravity usando suas contas existentes. A janela abre na lateral, flutua sobre o desktop e pode ser movida e redimensionada pelo Hyprland.
@@ -51,3 +53,11 @@ Desative `local.omachat` no Omarchy, remova o bloco `-- Omachat integration` de 
 ## Validação
 
 Os testes Qt cobrem persistência/exclusão/permissões do histórico, conteúdo citado, argumentos dos provedores e CLIs simuladas. O teste opcional `liveProviders` usa contas autenticadas e envia uma pergunta curta a cada provedor. A interface também é validada com renderização Qt offscreen. O motor de seleção deriva do Omapop (MIT, Jon Kinney); tema e tradução seguem os templates de aplicativos Omarchy (MIT, David Heinemeier Hansson).
+
+## Trabalhos futuros
+
+- **Universalidade de provedores:** abstrair a camada de backend para suportar provedores além de Codex e Antigravity — incluindo outras CLIs de agentes (como Claude Code, OpenCode e Gemini CLI), modelos locais (Ollama / llama.cpp) e provedores customizados declarados pelo usuário — mantendo o isolamento somente leitura e sem execução automática de ferramentas.
+- **Streaming de respostas:** exibir tokens incrementalmente durante a geração, reduzindo a latência percebida em respostas longas.
+- **Captura e OCR opcional:** suportar explicação de trechos em imagens e PDFs sem seleção primária no Wayland.
+- **Histórico pesquisável e exportável:** busca por texto nas conversas salvas e exportação em Markdown.
+- **Distribuição de releases:** publicação automatizada de pacotes Arch (`.pkg.tar.zst`) e PKGBUILD para instalação direta.

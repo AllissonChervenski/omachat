@@ -2,6 +2,7 @@ pkgname=omachat
 pkgver=0.2.2
 pkgrel=1
 pkgdesc='Selection explanation and chat with Codex or Antigravity for Omarchy'
+url='https://github.com/AllissonChervenski/omachat'
 arch=('x86_64' 'aarch64')
 license=('MIT')
 options=('!debug')
